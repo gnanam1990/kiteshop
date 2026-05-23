@@ -20,6 +20,13 @@ pnpm --filter api dev   # http://localhost:8789
 pnpm --filter web dev   # http://localhost:3000
 ```
 
+## Deployment
+
+- **Production:** https://kiteshop.vercel.app
+- **Host:** Vercel project `kiteshop`
+- **Status:** Web storefront build verified on 2026-05-23. Product listings, uploads, payment verification, and signed downloads require the Hono API on a persistent backend.
+- **API config:** deploy `packages/api` to Railway or another server host, then set `VITE_API` in the Vercel web project to the API base URL.
+
 ## API
 
 | Method | Path | Notes |

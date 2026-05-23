@@ -33,18 +33,24 @@ export function CreateProductForm({ onCreated }: { onCreated: () => void }) {
     form.append("token_address", TESTNET_USDT);
     form.append("network", "testnet");
     form.append("file", file);
-    const res = await createProduct(form);
-    setBusy(false);
-    if (res.error || !res.product) {
-      setError(res.error ?? "Failed to create product");
+    try {
+      const res = await createProduct(form);
+      if (res.error || !res.product) {
+        setError(res.error ?? "Failed to create product");
+        return;
+      }
+      setTitle("");
+      setDescription("");
+      setPriceUsdt("");
+      setFile(null);
+      setOk(true);
+      onCreated();
+    } catch {
+      setError("Product API is not configured for this Vercel preview yet.");
       return;
+    } finally {
+      setBusy(false);
     }
-    setTitle("");
-    setDescription("");
-    setPriceUsdt("");
-    setFile(null);
-    setOk(true);
-    onCreated();
   }
 
   return (

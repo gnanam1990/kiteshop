@@ -25,21 +25,26 @@ export function ProductDetail({ product, onBack }: Props) {
   async function confirm() {
     setBusy(true);
     setError(null);
-    const res = await confirmOrder({
-      product_id: product.id,
-      buyer_address: buyerAddress.trim(),
-      payment_tx: paymentTx.trim(),
-    });
-    setBusy(false);
-    if (res.error || !res.download_url) {
-      setError(res.reason || res.error || "Order failed");
-      return;
+    try {
+      const res = await confirmOrder({
+        product_id: product.id,
+        buyer_address: buyerAddress.trim(),
+        payment_tx: paymentTx.trim(),
+      });
+      if (res.error || !res.download_url) {
+        setError(res.reason || res.error || "Order failed");
+        return;
+      }
+      setDownload({
+        url: res.download_url,
+        expires: res.expires_at ?? "",
+        file: res.file_name ?? product.file_name,
+      });
+    } catch {
+      setError("Product API is not configured for this Vercel preview yet.");
+    } finally {
+      setBusy(false);
     }
-    setDownload({
-      url: res.download_url,
-      expires: res.expires_at ?? "",
-      file: res.file_name ?? product.file_name,
-    });
   }
 
   return (

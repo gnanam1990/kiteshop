@@ -13,11 +13,16 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setApiError(null);
     try {
       setProducts(await listProducts());
+    } catch {
+      setProducts([]);
+      setApiError("Product API is not configured for this Vercel preview yet.");
     } finally {
       setLoading(false);
     }
@@ -60,6 +65,21 @@ export default function App() {
                 <ProductDetail product={selected} onBack={() => setSelected(null)} />
               ) : loading ? (
                 <p className="text-sm font-mono text-kite-fg/55">Loading…</p>
+              ) : apiError ? (
+                <div className="rounded-2xl border border-kite-border bg-kite-card p-6 max-w-2xl">
+                  <p className="text-sm font-semibold text-kite-fg">
+                    Marketplace API not connected
+                  </p>
+                  <p className="mt-2 text-sm text-kite-fg/65 leading-relaxed">
+                    The web storefront is deployed, but product listings, upload,
+                    payment verification, and signed downloads need the Hono API
+                    running on a persistent backend with database and file storage.
+                  </p>
+                  <p className="mt-3 text-xs font-mono text-kite-fg/55">
+                    Next step: deploy the API package to Railway or another server host,
+                    then set VITE_API to that URL.
+                  </p>
+                </div>
               ) : products.length === 0 ? (
                 <p className="text-sm font-mono text-kite-fg/55">
                   No products yet. <button className="underline" onClick={() => setPage("sell")}>List the first one</button>.
