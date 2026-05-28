@@ -33,8 +33,8 @@ pnpm --filter web dev   # http://localhost:3000
 |--------|------|-------|
 | GET    | `/products` | List active listings |
 | GET    | `/products/:id` | Single product detail |
-| POST   | `/products` | multipart upload: `seller_address`, `title`, `description`, `price_wei`, `token_address`, `network`, `file` |
-| POST   | `/orders` | Body: `product_id`, `buyer_address`, `payment_tx` — verifies on-chain Transfer, returns signed download URL |
+| POST   | `/products` | Requires `Authorization: Bearer $KITESHOP_WRITE_API_KEY`; multipart upload: `seller_address`, `title`, `description`, `price_wei`, `token_address`, `network`, `file` |
+| POST   | `/orders` | Requires `Authorization: Bearer $KITESHOP_WRITE_API_KEY`; body: `product_id`, `buyer_address`, `payment_tx` — verifies on-chain Transfer, returns signed download URL |
 | GET    | `/orders/download/:token` | Streams the file if the token is unexpired |
 
 ## Payment verification
@@ -45,7 +45,7 @@ pnpm --filter web dev   # http://localhost:3000
 - `to == seller_address`
 - `value >= price_wei`
 
-Replay is impossible because the order row is keyed by a fresh download token; you can also enforce a unique constraint on `payment_tx` if you want strict one-shot semantics.
+Replay is blocked with a unique `payment_tx` index and a pre-insert duplicate check. A transaction hash can only create one delivered order.
 
 ## What's PREVIEW
 

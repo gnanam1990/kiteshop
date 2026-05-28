@@ -1,4 +1,4 @@
-import { createPublicClient, defineChain, http, parseAbiItem } from "viem";
+import { createPublicClient, decodeEventLog, defineChain, http, parseAbiItem } from "viem";
 
 const kiteTestnet = defineChain({
   id: 2368,
@@ -44,22 +44,20 @@ export async function verifyPayment(opts: VerifyPaymentInput): Promise<{
   for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== opts.expectedToken.toLowerCase()) continue;
     try {
-      const decoded = await client
-        .createEventFilter({ event: TRANSFER_EVENT, address: opts.expectedToken })
-        .catch(() => null);
-      void decoded;
+      const decoded = decodeEventLog({
+        abi: [TRANSFER_EVENT],
+        data: log.data,
+        topics: log.topics,
+      });
+      if (decoded.eventName !== "Transfer") continue;
+      const { from, to, value } = decoded.args;
+      if (from.toLowerCase() !== opts.expectedFrom.toLowerCase()) continue;
+      if (to.toLowerCase() !== opts.expectedTo.toLowerCase()) continue;
+      if (value >= opts.expectedValueWei) return { ok: true };
+      return { ok: false, reason: `value too low (${value} < ${opts.expectedValueWei})` };
     } catch {
-      // ignore
+      continue;
     }
-    // topic decoding (addr is bytes32 right-padded; we just compare lower-bytes hex)
-    if (log.topics.length < 3) continue;
-    const fromTopic = "0x" + log.topics[1]!.slice(26);
-    const toTopic = "0x" + log.topics[2]!.slice(26);
-    if (fromTopic.toLowerCase() !== opts.expectedFrom.toLowerCase()) continue;
-    if (toTopic.toLowerCase() !== opts.expectedTo.toLowerCase()) continue;
-    const value = BigInt(log.data);
-    if (value >= opts.expectedValueWei) return { ok: true };
-    return { ok: false, reason: `value too low (${value} < ${opts.expectedValueWei})` };
   }
   return { ok: false, reason: "no matching Transfer log" };
 }

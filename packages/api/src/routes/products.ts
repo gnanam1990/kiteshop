@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import crypto from "node:crypto";
 import { db } from "../lib/db";
+import { requireWriteAuth } from "../lib/auth";
 import { storeUpload } from "../lib/storage";
 
 const products = new Hono();
@@ -26,7 +27,7 @@ products.get("/:id", (c) => {
   return c.json({ product: p });
 });
 
-products.post("/", async (c) => {
+products.post("/", requireWriteAuth, async (c) => {
   const form = await c.req.parseBody();
   const seller = String(form.seller_address ?? "").trim();
   const title = String(form.title ?? "").trim();

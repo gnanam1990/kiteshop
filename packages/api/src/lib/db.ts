@@ -35,4 +35,8 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_products_seller ON products(seller_address);
   CREATE INDEX IF NOT EXISTS idx_orders_buyer ON orders(buyer_address);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_payment_tx_unique ON orders(payment_tx)
+    WHERE payment_tx IS NOT NULL;
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_download_token_unique ON orders(download_token)
+    WHERE download_token IS NOT NULL;
 `);

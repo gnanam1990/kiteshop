@@ -5,7 +5,7 @@ import products from "./routes/products";
 import orders from "./routes/orders";
 
 const app = new Hono();
-app.use("*", cors());
+app.use("*", cors({ allowHeaders: ["Content-Type", "Authorization"] }));
 
 app.get("/", (c) =>
   c.json({ ok: true, service: "kiteshop", version: "0.1.0" })

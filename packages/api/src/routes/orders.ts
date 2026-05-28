@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import crypto from "node:crypto";
 import { db } from "../lib/db";
+import { requireWriteAuth } from "../lib/auth";
 import { pathForKey } from "../lib/storage";
 import { verifyPayment } from "../lib/verify-payment";
 import { createReadStream, statSync } from "node:fs";
@@ -18,7 +19,7 @@ interface ProductRow {
   file_name: string;
 }
 
-orders.post("/", async (c) => {
+orders.post("/", requireWriteAuth, async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body) return c.json({ error: "invalid body" }, 400);
   const { product_id, buyer_address, payment_tx } = body as Record<string, string>;
@@ -37,8 +38,16 @@ orders.post("/", async (c) => {
     .get(product_id) as ProductRow | undefined;
   if (!product) return c.json({ error: "product not found" }, 404);
 
+  const normalizedPaymentTx = payment_tx.toLowerCase();
+  const reused = db
+    .prepare("SELECT id FROM orders WHERE payment_tx = ?")
+    .get(normalizedPaymentTx) as { id: string } | undefined;
+  if (reused) {
+    return c.json({ error: "payment_tx_already_used" }, 409);
+  }
+
   const verification = await verifyPayment({
-    txHash: payment_tx as `0x${string}`,
+    txHash: normalizedPaymentTx as `0x${string}`,
     expectedToken: product.token_address as `0x${string}`,
     expectedTo: product.seller_address as `0x${string}`,
     expectedFrom: buyer_address as `0x${string}`,
@@ -54,10 +63,17 @@ orders.post("/", async (c) => {
   const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
   const id = crypto.randomUUID();
 
-  db.prepare(
-    `INSERT INTO orders (id, product_id, buyer_address, payment_tx, status, download_token, download_expires_at)
-     VALUES (?, ?, ?, ?, 'delivered', ?, ?)`
-  ).run(id, product_id, buyer_address.toLowerCase(), payment_tx, downloadToken, expiresAt);
+  try {
+    db.prepare(
+      `INSERT INTO orders (id, product_id, buyer_address, payment_tx, status, download_token, download_expires_at)
+       VALUES (?, ?, ?, ?, 'delivered', ?, ?)`
+    ).run(id, product_id, buyer_address.toLowerCase(), normalizedPaymentTx, downloadToken, expiresAt);
+  } catch (err) {
+    if (err instanceof Error && /unique/i.test(err.message)) {
+      return c.json({ error: "payment_tx_already_used" }, 409);
+    }
+    throw err;
+  }
 
   return c.json({
     order_id: id,
@@ -80,8 +96,14 @@ orders.get("/download/:token", (c) => {
     .get(order.product_id) as { file_key: string; file_name: string } | undefined;
   if (!product) return c.json({ error: "product gone" }, 404);
 
-  const path = pathForKey(product.file_key);
-  const size = statSync(path).size;
+  let path: string;
+  let size: number;
+  try {
+    path = pathForKey(product.file_key);
+    size = statSync(path).size;
+  } catch {
+    return c.json({ error: "file unavailable" }, 404);
+  }
   const stream = Readable.toWeb(createReadStream(path)) as ReadableStream;
 
   return new Response(stream, {

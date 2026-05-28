@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { dirname, resolve, join } from "node:path";
+import { basename, dirname, resolve, join } from "node:path";
 import { promises as fs } from "node:fs";
 import crypto from "node:crypto";
 
@@ -21,5 +21,13 @@ export async function storeUpload(buf: Buffer, originalName: string): Promise<St
 }
 
 export function pathForKey(key: string): string {
-  return join(UPLOADS_DIR, key);
+  if (!key || key !== basename(key) || key.includes("/") || key.includes("\\")) {
+    throw new Error("invalid file key");
+  }
+  const path = resolve(UPLOADS_DIR, key);
+  const root = resolve(UPLOADS_DIR);
+  if (path !== root && !path.startsWith(`${root}/`)) {
+    throw new Error("invalid file key");
+  }
+  return path;
 }
