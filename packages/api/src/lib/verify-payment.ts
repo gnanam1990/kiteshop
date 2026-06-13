@@ -41,6 +41,8 @@ export async function verifyPayment(opts: VerifyPaymentInput): Promise<{
   if (!receipt) return { ok: false, reason: "tx not found" };
   if (receipt.status !== "success") return { ok: false, reason: "tx reverted" };
 
+  let sawMatchingTransfer = false;
+  let highestValue = 0n;
   for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== opts.expectedToken.toLowerCase()) continue;
     try {
@@ -54,10 +56,16 @@ export async function verifyPayment(opts: VerifyPaymentInput): Promise<{
       if (from.toLowerCase() !== opts.expectedFrom.toLowerCase()) continue;
       if (to.toLowerCase() !== opts.expectedTo.toLowerCase()) continue;
       if (value >= opts.expectedValueWei) return { ok: true };
-      return { ok: false, reason: `value too low (${value} < ${opts.expectedValueWei})` };
+      // A matching transfer below the price is not yet a failure: a later log in
+      // the same transaction may carry a sufficient buyer -> seller transfer.
+      sawMatchingTransfer = true;
+      if (value > highestValue) highestValue = value;
     } catch {
       continue;
     }
+  }
+  if (sawMatchingTransfer) {
+    return { ok: false, reason: `value too low (${highestValue} < ${opts.expectedValueWei})` };
   }
   return { ok: false, reason: "no matching Transfer log" };
 }
